@@ -689,6 +689,8 @@ extern "C" __declspec(dllexport) bool32 LinkModLogic(EngineInfo * info, const ch
 	SMPS_SetSongTempo = (decltype(SMPS_SetSongTempo))GetProcAddress(handle, "SMPS_SetSongTempo");
 	SMPS_SetVolume = (decltype(SMPS_SetVolume))GetProcAddress(handle, "SMPS_SetVolume");
 	SMPS_SetVolume(0.5);
+	sprintf_s(buf, "mods\\%s\\songs_cust.ini", id);
+	((void(*)(const char* fn))GetProcAddress(handle, "SMPS_AddCustomSongs"))(buf);
 	unsigned int trackCnt;
 	auto tracks = ((const char** (*)(unsigned int& count))GetProcAddress(handle, "SMPS_GetSongNames"))(trackCnt);
 	std::unordered_map<std::string, short> smpsmap;
