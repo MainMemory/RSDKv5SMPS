@@ -2,6 +2,7 @@
 #include "pch.h"
 #include <string>
 #include <unordered_map>
+#include <algorithm>
 
 using namespace RSDK;
 
@@ -195,7 +196,9 @@ private:
 Func<int32, const char*, uint32, uint32, uint32, bool32>* PlayStream;
 int32 PlayStream_r(const char* filename, uint32 channel, uint32 startPos, uint32 loopPoint, bool32 loadASync)
 {
-	auto iter = songmap.find(filename);
+	std::string str(filename);
+	std::transform(str.begin(), str.end(), str.begin(), tolower);
+	auto iter = songmap.find(str);
 	if (iter != songmap.cend())
 	{
 		SMPS_LoadAndPlaySong(iter->second);
@@ -203,7 +206,7 @@ int32 PlayStream_r(const char* filename, uint32 channel, uint32 startPos, uint32
 		SMPS_SetSongTempo(maniaGlobals->vapeMode ? 0.75 : 1);
 		SMPS_ResumeSong();
 		isSpeedUp = false;
-		one_up = !strcmp(filename, "1up.ogg");
+		one_up = smpsChannel != -1 && !str.compare("1up.ogg");
 		smpsChannel = channel;
 		return PlayStream->Original("SMPSDummy.ogg", channel, 0, 1, loadASync);
 	}
@@ -695,7 +698,11 @@ extern "C" __declspec(dllexport) bool32 LinkModLogic(EngineInfo * info, const ch
 	auto tracks = ((const char** (*)(unsigned int& count))GetProcAddress(handle, "SMPS_GetSongNames"))(trackCnt);
 	std::unordered_map<std::string, short> smpsmap;
 	for (size_t i = 0; i < trackCnt; i++)
-		smpsmap[tracks[i]] = (short)i;
+	{
+		std::string tr(tracks[i]);
+		std::transform(tr.begin(), tr.end(), tr.begin(), tolower);
+		smpsmap[tr] = (short)i;
+	}
 
 	for (auto& str : Mod::Config::Get())
 	{
@@ -705,10 +712,12 @@ extern "C" __declspec(dllexport) bool32 LinkModLogic(EngineInfo * info, const ch
 			str.CStr(buf);
 			if (!memcmp(buf, "SMPS:", 5))
 			{
+				std::transform(buf, buf + str.size, buf, tolower);
 				String val;
 				Mod::Config::GetString(buf, &val, "");
 				char* buf2 = new char[val.size + 1];
 				val.CStr(buf2);
+				std::transform(buf2, buf2 + val.size, buf2, tolower);
 				auto iter = smpsmap.find(buf2);
 				if (iter != smpsmap.cend())
 					songmap[buf + 5] = iter->second;
