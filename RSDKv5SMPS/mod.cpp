@@ -712,11 +712,11 @@ extern "C" __declspec(dllexport) bool32 LinkModLogic(EngineInfo * info, const ch
 			str.CStr(buf);
 			if (!memcmp(buf, "SMPS:", 5))
 			{
-				std::transform(buf, buf + str.size, buf, tolower);
 				String val;
 				Mod::Config::GetString(buf, &val, "");
 				char* buf2 = new char[val.size + 1];
 				val.CStr(buf2);
+				std::transform(buf, buf + str.size, buf, tolower);
 				std::transform(buf2, buf2 + val.size, buf2, tolower);
 				auto iter = smpsmap.find(buf2);
 				if (iter != smpsmap.cend())
