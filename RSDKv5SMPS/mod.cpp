@@ -631,7 +631,7 @@ struct BSS_Setup : EntityBSS_Setup {
 	void Update()
 	{
 		int oldlvl = speedupLevel;
-		sVars->Super(SUPER_UPDATE);
+		modTable->Super(classID, SUPER_UPDATE, nullptr);
 		if (smpsChannel != -1 && speedupLevel != oldlvl)
 		{
 			double tempo = 1 + (1 / ((-(speedupLevel - 32) * 2 + 8) / 2.0));
