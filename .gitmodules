@@ -1,3 +1,6 @@
 [submodule "GameAPI"]
 	path = GameAPI
 	url = https://github.com/Rubberduckycooly/GameAPI
+[submodule "mod-loader-common"]
+	path = mod-loader-common
+	url = https://github.com/sonicretro/mod-loader-common

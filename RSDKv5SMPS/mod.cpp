@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <algorithm>
+#include "IniFile.hpp"
 
 using namespace RSDK;
 
@@ -663,71 +664,98 @@ void InitModAPI(void)
 }
 
 #define ADD_PUBLIC_FUNC(func) Mod.AddPublicFunction(#func, (void *)(func))
+HMODULE smpslibhandle = 0;
 
-extern "C" __declspec(dllexport) bool32 LinkModLogic(EngineInfo * info, const char* id)
+extern "C"
 {
-#if !RETRO_REV01
-	LinkGameLogicDLL(info);
-#else
-	LinkGameLogicDLL(*info);
-#endif
-
-	maniaGlobals = (ManiaGlobalVariables*)Mod::GetGlobals();
-
-	char buf[_MAX_PATH];
-	sprintf_s(buf, "mods\\%s\\SMPSPlay.dll", id);
-	HMODULE handle = LoadLibraryA(buf);
-	if (!handle)
+	__declspec(dllexport) void UnloadMod()
 	{
-		Dev::Print(Dev::PRINT_ERROR, "SMPSPlay DLL failed to load!");
-		return false;
-	}
-
-	((BOOL(*)())GetProcAddress(handle, "SMPS_InitializeDriver"))();
-	((void(*)(void(*callback)()))GetProcAddress(handle, "SMPS_RegisterSongStoppedCallback"))(SongStoppedCallback);
-	SMPS_LoadAndPlaySong = (decltype(SMPS_LoadAndPlaySong))GetProcAddress(handle, "SMPS_LoadAndPlaySong");
-	SMPS_StopSong = (decltype(SMPS_StopSong))GetProcAddress(handle, "SMPS_StopSong");
-	SMPS_PauseSong = (decltype(SMPS_PauseSong))GetProcAddress(handle, "SMPS_PauseSong");
-	SMPS_ResumeSong = (decltype(SMPS_ResumeSong))GetProcAddress(handle, "SMPS_ResumeSong");
-	SMPS_SetSongTempo = (decltype(SMPS_SetSongTempo))GetProcAddress(handle, "SMPS_SetSongTempo");
-	SMPS_SetVolume = (decltype(SMPS_SetVolume))GetProcAddress(handle, "SMPS_SetVolume");
-	SMPS_SetVolume(0.5);
-	sprintf_s(buf, "mods\\%s\\songs_cust.ini", id);
-	((void(*)(const char* fn))GetProcAddress(handle, "SMPS_AddCustomSongs"))(buf);
-	unsigned int trackCnt;
-	auto tracks = ((const char** (*)(unsigned int& count))GetProcAddress(handle, "SMPS_GetSongNames"))(trackCnt);
-	std::unordered_map<std::string, short> smpsmap;
-	for (size_t i = 0; i < trackCnt; i++)
-	{
-		std::string tr(tracks[i]);
-		std::transform(tr.begin(), tr.end(), tr.begin(), tolower);
-		smpsmap[tr] = (short)i;
-	}
-
-	for (auto& str : Mod::Config::Get())
-	{
-		if (str.size > 5)
+		if (smpslibhandle)
 		{
-			char* buf = new char[str.size + 1];
-			str.CStr(buf);
-			if (!memcmp(buf, "SMPS:", 5))
-			{
-				String val;
-				Mod::Config::GetString(buf, &val, "");
-				char* buf2 = new char[val.size + 1];
-				val.CStr(buf2);
-				std::transform(buf, buf + str.size, buf, tolower);
-				std::transform(buf2, buf2 + val.size, buf2, tolower);
-				auto iter = smpsmap.find(buf2);
-				if (iter != smpsmap.cend())
-					songmap[buf + 5] = iter->second;
-				delete[] buf2;
-			}
-			delete[] buf;
+			((BOOL(*)())GetProcAddress(smpslibhandle, "SMPS_DeInitializeDriver"))();
+			FreeLibrary(smpslibhandle);
+			smpslibhandle = 0;
+			delete PlayStream;
+			PlayStream = nullptr;
+			delete StopChannel;
+			StopChannel = nullptr;
+			delete PauseChannel;
+			PauseChannel = nullptr;
+			delete ResumeChannel;
+			ResumeChannel = nullptr;
+			delete SetChannelAttributes;
+			SetChannelAttributes = nullptr;
+			delete Music_PlayJingle;
+			Music_PlayJingle = nullptr;
 		}
 	}
 
-	InitModAPI();
+	__declspec(dllexport) bool32 LinkModLogic(EngineInfo* info, const char* id)
+	{
+#if !RETRO_REV01
+		LinkGameLogicDLL(info);
+#else
+		LinkGameLogicDLL(*info);
+#endif
 
-	return true;
+		maniaGlobals = (ManiaGlobalVariables*)Mod::GetGlobals();
+
+		char buf[_MAX_PATH];
+		sprintf_s(buf, "mods\\%s\\SMPSPlay.dll", id);
+		smpslibhandle = LoadLibraryA(buf);
+		if (!smpslibhandle)
+		{
+			Dev::Print(Dev::PRINT_ERROR, "SMPSPlay DLL failed to load!");
+			return false;
+		}
+
+		((BOOL(*)())GetProcAddress(smpslibhandle, "SMPS_InitializeDriver"))();
+		((void(*)(void(*callback)()))GetProcAddress(smpslibhandle, "SMPS_RegisterSongStoppedCallback"))(SongStoppedCallback);
+		SMPS_LoadAndPlaySong = (decltype(SMPS_LoadAndPlaySong))GetProcAddress(smpslibhandle, "SMPS_LoadAndPlaySong");
+		SMPS_StopSong = (decltype(SMPS_StopSong))GetProcAddress(smpslibhandle, "SMPS_StopSong");
+		SMPS_PauseSong = (decltype(SMPS_PauseSong))GetProcAddress(smpslibhandle, "SMPS_PauseSong");
+		SMPS_ResumeSong = (decltype(SMPS_ResumeSong))GetProcAddress(smpslibhandle, "SMPS_ResumeSong");
+		SMPS_SetSongTempo = (decltype(SMPS_SetSongTempo))GetProcAddress(smpslibhandle, "SMPS_SetSongTempo");
+		SMPS_SetVolume = (decltype(SMPS_SetVolume))GetProcAddress(smpslibhandle, "SMPS_SetVolume");
+		SMPS_SetVolume(0.5);
+		sprintf_s(buf, "mods\\%s\\songs_cust.ini", id);
+		((void(*)(const char* fn))GetProcAddress(smpslibhandle, "SMPS_AddCustomSongs"))(buf);
+		unsigned int trackCnt;
+		auto tracks = ((const char** (*)(unsigned int& count))GetProcAddress(smpslibhandle, "SMPS_GetSongNames"))(trackCnt);
+		std::unordered_map<std::string, short> smpsmap;
+		for (size_t i = 0; i < trackCnt; i++)
+		{
+			std::string tr(tracks[i]);
+			std::transform(tr.begin(), tr.end(), tr.begin(), tolower);
+			smpsmap[tr] = (short)i;
+		}
+
+		songmap.clear();
+		int32 modcnt = Mod::List::GetModCount(true);
+		for (int32 modnum = 0; modnum < modcnt; modnum++)
+		{
+			char path[MAX_PATH];
+			sprintf_s(path, "mods\\%s\\modSettings.ini", Mod::List::GetModIDByIndex(modnum));
+			IniFile ini(path);
+			auto grp = ini.getGroup("SMPS");
+			if (grp)
+				for (auto iter = grp->cbegin(); iter != grp->cend(); ++iter)
+				{
+					auto key = iter->first;
+					std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+					if (songmap.find(key) == songmap.end())
+					{
+						auto val = iter->second;
+						std::transform(val.begin(), val.end(), val.begin(), ::tolower);
+						auto iter = smpsmap.find(val);
+						if (iter != smpsmap.cend())
+							songmap[key] = iter->second;
+					}
+				}
+		}
+
+		InitModAPI();
+
+		return true;
+	}
 }
